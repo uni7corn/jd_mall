@@ -1,10 +1,12 @@
 package com.aries.cart.ui
 
+import android.content.Intent
 import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.lifecycle.Lifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.airbnb.mvrx.MavericksView
@@ -20,6 +22,7 @@ import com.aries.cart.ui.listener.OnStepperChangeListener
 import com.aries.cart.ui.view.QuickEntryPopup
 import com.aries.common.adapter.GoodsListAdapter
 import com.aries.common.base.BaseFragment
+import com.aries.common.base.FlutterAppActivity
 import com.aries.common.constants.RouterPaths
 import com.aries.common.decoration.SpacesItemDecoration
 import com.aries.common.util.DisplayUtil
@@ -29,9 +32,13 @@ import com.donkingliang.consecutivescroller.ConsecutiveScrollerLayout
 import com.gyf.immersionbar.ImmersionBar
 import com.lxj.xpopup.XPopup
 import com.lxj.xpopup.enums.PopupAnimation
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterActivityLaunchConfigs
 import java.math.BigDecimal
+import java.util.Timer
+import java.util.TimerTask
 
-class CartFragment: BaseFragment<FragmentCartBinding>(), MavericksView {
+class CartFragment : BaseFragment<FragmentCartBinding>(), MavericksView {
     private val viewModel: CartViewModel by activityViewModel()
 
     //购物车中店铺商品列表adapter
@@ -42,6 +49,8 @@ class CartFragment: BaseFragment<FragmentCartBinding>(), MavericksView {
     private val staggeredGridLayoutManager: StaggeredGridLayoutManager by lazy {
         StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
     }
+
+    private var pageScrollY: Int = 0
 
     override fun getViewBinding(inflater: LayoutInflater, container: ViewGroup?): FragmentCartBinding {
         return FragmentCartBinding.inflate(inflater, container, false)
@@ -108,6 +117,7 @@ class CartFragment: BaseFragment<FragmentCartBinding>(), MavericksView {
         //监听页面滚动显示与隐藏backTop按钮
          binding.consecutiveScrollerLayout.onVerticalScrollChangeListener =
             ConsecutiveScrollerLayout.OnScrollChangeListener { _, scrollY, _, _ ->
+                pageScrollY = scrollY
                 if (scrollY >= DisplayUtil.getScreenHeight(requireContext())) {
                     binding.backTop.visibility = View.VISIBLE
                 } else {
@@ -123,10 +133,29 @@ class CartFragment: BaseFragment<FragmentCartBinding>(), MavericksView {
         }
         //返回顶部
          binding.backTop.setOnClickListener {
-             binding.consecutiveScrollerLayout.scrollToChild(binding.consecutiveScrollerLayout.getChildAt(0))
+             val timer = Timer()
+             timer.schedule(object : TimerTask() {
+                 override fun run() {
+                     activity?.runOnUiThread {
+                         pageScrollY -= 800
+                         if (pageScrollY > 0) {
+                             binding.consecutiveScrollerLayout.scrollTo(0, pageScrollY)
+                         } else {
+                             binding.consecutiveScrollerLayout.smoothScrollToChild(binding.consecutiveScrollerLayout.getChildAt(0))
+                             timer.cancel()
+                         }
+                     }
+                 }
+             }, 0, 10)
         }
         //全选
          binding.includeBtnAll.totalCheckBox.setOnClickListener { checkAll() }
+
+         binding.includeBtnAll.btnGoOrder.setOnClickListener {
+             val intent = Intent(this.requireActivity(), FlutterAppActivity::class.java)
+             intent.putExtra("routeName","/generateOrder?key1=value1&key2=value2")
+             startActivity(intent)
+         }
     }
 
     override fun initData() {

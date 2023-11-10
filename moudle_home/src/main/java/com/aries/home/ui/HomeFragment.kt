@@ -1,12 +1,14 @@
 package com.aries.home.ui
 
 import android.annotation.SuppressLint
+import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.RelativeLayout
 import androidx.appcompat.widget.LinearLayoutCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.Lifecycle
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import com.airbnb.mvrx.MavericksView
 import com.airbnb.mvrx.activityViewModel
@@ -24,8 +26,12 @@ import com.google.android.material.tabs.TabLayoutMediator
 import com.aries.home.ui.view.AdView
 import com.aries.home.ui.view.NineMenuView
 import com.gyf.immersionbar.ImmersionBar
+import com.orhanobut.logger.Logger
+import okhttp3.internal.notifyAll
+import java.util.Timer
+import java.util.TimerTask
 
-class HomeFragment: BaseFragment<FragmentHomeBinding>(), MavericksView {
+class HomeFragment : BaseFragment<FragmentHomeBinding>(), MavericksView {
     private val viewModel: HomeViewModel by activityViewModel()
     //loading 对话框
     private val loadingDialog: LoadingDialog by lazy { LoadingDialog(this.requireActivity()) }
@@ -39,6 +45,8 @@ class HomeFragment: BaseFragment<FragmentHomeBinding>(), MavericksView {
     private val adView: AdView by lazy { AdView(this.requireContext()) }
     //顶部九格宫功能菜单
     private val nineMenuView: NineMenuView by lazy { NineMenuView(this.requireContext(), this@HomeFragment) }
+
+    private var pageScrollY: Int = 0
 
     override fun getViewBinding(inflater: LayoutInflater, container: ViewGroup?): FragmentHomeBinding {
         return FragmentHomeBinding.inflate(inflater, container, false)
@@ -83,7 +91,20 @@ class HomeFragment: BaseFragment<FragmentHomeBinding>(), MavericksView {
             ConsecutiveScrollerLayout.OnScrollChangeListener { _, scrollY, _, _ -> searchHeaderOnScroll(scrollY) }
 
         binding.backTop.setOnClickListener {
-            binding.consecutiveScrollerLayout.scrollToChild(binding.consecutiveScrollerLayout.getChildAt(0))
+            val timer = Timer()
+            timer.schedule(object : TimerTask() {
+                override fun run() {
+                    activity?.runOnUiThread {
+                        pageScrollY -= 800
+                        if (pageScrollY > 0) {
+                            binding.consecutiveScrollerLayout.scrollTo(0, pageScrollY)
+                        } else {
+                            binding.consecutiveScrollerLayout.smoothScrollToChild(binding.consecutiveScrollerLayout.getChildAt(0))
+                            timer.cancel()
+                        }
+                    }
+                }
+            }, 0, 10)
         }
         addStateChangeListener()
     }
@@ -152,7 +173,12 @@ class HomeFragment: BaseFragment<FragmentHomeBinding>(), MavericksView {
         tabViewPagerAdapter = object : FragmentStateAdapter(this){
             override fun getItemCount(): Int = tabList.size
             override fun createFragment(position: Int): Fragment {
-                return GoodsListFragment(tabList[position].code)
+                val goodsListFragment = GoodsListFragment()
+                val bundle = Bundle()
+                bundle.putString("code", tabList[position].code)
+                goodsListFragment.arguments = bundle
+
+                return goodsListFragment
             }
         }
         binding.viewPager.adapter = tabViewPagerAdapter
@@ -169,6 +195,7 @@ class HomeFragment: BaseFragment<FragmentHomeBinding>(), MavericksView {
     private val searchHeight = PixelUtil.toPixelFromDIP(30f)
 
     private fun searchHeaderOnScroll(scrollY: Int) {
+        pageScrollY = scrollY
         val containerNewHeight = searchHeaderMaxHeight - scrollY * 0.5
         val searchNewMarginTop = searchMaxMarginTop - scrollY * 0.5
         val searchNewMarginLeft = searchMinMargin + scrollY * 1.3

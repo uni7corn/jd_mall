@@ -7,6 +7,7 @@ import android.widget.ImageView
 import androidx.annotation.RequiresApi
 import androidx.appcompat.widget.LinearLayoutCompat
 import androidx.core.widget.NestedScrollView
+import androidx.lifecycle.Lifecycle
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
@@ -31,9 +32,11 @@ import com.aries.common.util.PixelUtil
 import com.aries.common.util.StatusBarUtil
 import com.google.android.material.tabs.TabLayout
 import com.gyf.immersionbar.ImmersionBar
+import java.util.Timer
+import java.util.TimerTask
 
 @Route(path = RouterPaths.GOODS_DETAIL)
-class DetailActivity: BaseActivity<ActivityDetailBinding>(), MavericksView {
+class DetailActivity : BaseActivity<ActivityDetailBinding>(), MavericksView {
     private val tabs = arrayListOf("商品", "评价", "详情", "推荐")
     private var imageLoader: ImageLoader = CoilUtil.getImageLoader()
     private val loadingDialog: LoadingDialog by lazy { LoadingDialog(this) }
@@ -55,6 +58,8 @@ class DetailActivity: BaseActivity<ActivityDetailBinding>(), MavericksView {
         StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
     }
 
+    private var isClicking: Boolean = false
+
     override fun getViewBinding(): ActivityDetailBinding {
         return ActivityDetailBinding.inflate(LayoutInflater.from(this))
     }
@@ -71,16 +76,30 @@ class DetailActivity: BaseActivity<ActivityDetailBinding>(), MavericksView {
             @RequiresApi(Build.VERSION_CODES.M)
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 if (tab != null) {
+                    isClicking = true
+                    binding.includeHeader.detailHeaderTabLayout.setScrollPosition(tab.position, 0f, true)
                     // 根据选中的tab滚动 页面至对应的模块
                     scrollToPositionByTab(tab.position)
+                    Timer().schedule(object : TimerTask() {
+                        override fun run() {
+                            isClicking = false
+                        }
+                    }, 2000)
                 }
             }
             @RequiresApi(Build.VERSION_CODES.M)
             override fun onTabUnselected(tab: TabLayout.Tab?) { }
             override fun onTabReselected(tab: TabLayout.Tab?) {
                 if (tab != null) {
+                    isClicking = true
+                    binding.includeHeader.detailHeaderTabLayout.setScrollPosition(tab.position, 0f, true)
                     // 根据选中的tab滚动 页面至对应的模块
                     scrollToPositionByTab(tab.position)
+                    Timer().schedule(object : TimerTask() {
+                        override fun run() {
+                            isClicking = false
+                        }
+                    }, 2000)
                 }
             }
         })
@@ -233,7 +252,7 @@ class DetailActivity: BaseActivity<ActivityDetailBinding>(), MavericksView {
             dy < recommendToTop -> 2
             else -> 3
         }
-        if (currentTabPosition != tabPosition) {
+        if (currentTabPosition != tabPosition && !isClicking) {
             currentTabPosition = tabPosition
             binding.includeHeader.detailHeaderTabLayout.setScrollPosition(tabPosition, 0f, true)
         }
